@@ -1,6 +1,8 @@
 # Auto Post Search Bot (Pyrogram + MongoDB + RapidFuzz)
 
-## Post format (in your index channel)
+## Post format (in your index channel or group)
+The post number in the link is optional: `https://t.me/channelname` also works.
+
 Private story:
 ```
 Story Name
