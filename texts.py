@@ -32,13 +32,22 @@ def too_short() -> str:
 
 
 _AI_FRAMES = [
-    "🔍 <b>AI Search…</b>\n🤖 <i>analysing your search</i>",
-    "🔍 <b>AI Search…</b>\n✨ <i>finding the best matches</i>",
+    ("🔍", "▰▱▱▱▱▱▱▱", "Scanning the story library…"),
+    ("🔎", "▰▰▰▱▱▱▱▱", "Understanding your spelling…"),
+    ("🔍", "▰▰▰▰▰▱▱▱", "Matching similar names…"),
+    ("✨", "▰▰▰▰▰▰▰▰", "Picking the best results…"),
 ]
+AI_FRAME_COUNT = len(_AI_FRAMES)
 
 
 def ai_frame(i: int) -> str:
-    return _AI_FRAMES[min(i, len(_AI_FRAMES) - 1)]
+    icon, bar, status = _AI_FRAMES[min(i, AI_FRAME_COUNT - 1)]
+    return _box(
+        f"🤖 <b>AI SEARCH</b> {icon}",
+        f"<code>{bar}</code>",
+        f"⚡ <i>{status}</i>",
+        LINE,
+    )
 
 
 def results(mode: str, hits: list, user_html: str, query: str, elapsed: float, page_info=None) -> str:
@@ -48,10 +57,7 @@ def results(mode: str, hits: list, user_html: str, query: str, elapsed: float, p
         "tag": "🏷 <b>HASHTAG RESULTS</b>",
     }[mode]
     if mode == "suggest":
-        names = [
-            f"{BULLET} <b>Name:</b> {html.escape(p['title'])}  <code>{p.get('score', 0)}%</code>"
-            for p in hits
-        ]
+        names = [f"{BULLET} <b>Name:</b> {html.escape(p['title'])}" for p in hits]
         foot = "🤖 <i>AI picked the best matches - tap one to get it</i>"
     else:
         names = [f"{BULLET} <b>Name:</b> {html.escape(p['title'])}" for p in hits]
