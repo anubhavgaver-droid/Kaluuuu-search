@@ -1,0 +1,30 @@
+from pyrogram import Client, filters
+
+import database as db
+from config import Config
+
+USER_HELP = (
+    "👋 <b>Welcome!</b>\n\n"
+    "Send me the name of a story/post and I'll find it for you.\n"
+    "Spelling mistakes are fine. You can also search by hashtag, e.g. <code>#romance</code>."
+)
+
+ADMIN_HELP = (
+    "\n\n🛠 <b>Admin commands</b>\n"
+    "/connect <code>-100id</code> – connect a channel (bot must be admin there)\n"
+    "/disconnect <code>-100id</code> [purge] – disconnect (purge also deletes its posts)\n"
+    "/channels – connected channels\n"
+    "/index <code>-100id last_msg_id [first_msg_id]</code> – index old posts\n"
+    "/add <code>(post text in channel format)</code> – add a post manually\n"
+    "/delete <code>name or link</code> – delete a post\n"
+    "/stats – statistics"
+)
+
+
+@Client.on_message(filters.command(["start", "help"]) & filters.private)
+async def start(client, message):
+    await db.add_user(message.from_user.id)
+    text = USER_HELP
+    if message.from_user.id in Config.ADMINS:
+        text += ADMIN_HELP
+    await message.reply_text(text)
