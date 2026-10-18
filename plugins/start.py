@@ -14,6 +14,7 @@ ADMIN_HELP = (
     "/add <code>(post text in channel format)</code> – add a post manually\n"
     "/delete <code>name or link</code> – delete a post\n"
     "/parse – reply to a forwarded post to see how I read it\n"
+    "/requests – pending story requests\n"
     "/stats – statistics"
 )
 
