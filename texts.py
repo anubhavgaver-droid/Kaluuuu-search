@@ -199,3 +199,13 @@ def not_your_search() -> str:
         LINE,
         "👇 <i>Go to the group and search yours</i>",
     )
+
+
+def genre_menu(total: int, page: int, pages: int) -> str:
+    return _box(
+        "🎭 <b>FIND BY GENRE</b>",
+        f"📦 <b>Genres available:</b> {total}",
+        f"📄 <b>Page:</b> {page + 1}/{pages}",
+        LINE,
+        "👇 <i>Tap a genre to see its stories</i>",
+    )
