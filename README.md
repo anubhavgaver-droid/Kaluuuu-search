@@ -35,3 +35,12 @@ admin in that story's channel (to check membership and make join links).
 
 ## Admin
 /connect -100id (index channel), /index -100id last_msg_id, /add, /delete, /channels, /stats
+
+## Groups & auto-delete
+- Add the bot to your search group. In @BotFather: /setprivacy -> Disable (or make the bot admin) so it can read messages.
+- Give it "Delete messages" right if you want users' search messages removed too.
+- In a group the bot replies "Here is your post" with buttons. Each button opens the bot's PM through a
+  start-parameter deep link (t.me/<bot>?start=p<id>), where private stories ask the user to join first.
+- Everything (search results, links, join prompts, users' queries) auto-deletes after AUTO_DELETE_SECONDS (default 300).
+  Admin command replies are not deleted.
+- In groups the bot only answers strong matches (GROUP_MIN_SCORE, default 75) and stays silent otherwise.

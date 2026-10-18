@@ -23,7 +23,7 @@ async def fuzzy(query: str, limit: int, cutoff: int):
     return [(index[i], score) for _, score, i in found]
 
 
-async def search(query: str):
+async def search(query: str, min_score=None):
     """Returns (mode, posts). mode: exact | suggest | tag | none"""
     q = query.strip()
     if q.startswith("#"):
@@ -32,7 +32,7 @@ async def search(query: str):
         hits = [p for p in index if any(t.lower() == tag for t in p["hashtags"])]
         return ("tag", hits[:10]) if hits else ("none", [])
 
-    res = await fuzzy(q, Config.MAX_RESULTS, Config.MIN_SCORE)
+    res = await fuzzy(q, Config.MAX_RESULTS, min_score or Config.MIN_SCORE)
     if not res:
         return "none", []
     best = res[0][1]

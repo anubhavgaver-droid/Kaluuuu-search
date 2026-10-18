@@ -5,7 +5,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 from config import Config
 
-posts = channels = users = None
+posts = channels = users = deletions = None
 _cache = {"data": [], "ts": 0.0, "dirty": True}
 _channel_ids = set()
 
@@ -16,10 +16,11 @@ def make_id(chat_id: int, message_id: int) -> str:
 
 async def setup():
     # Motor client is created here so it binds to the running event loop
-    global posts, channels, users
+    global posts, channels, users, deletions
     db = AsyncIOMotorClient(Config.MONGO_URI)[Config.DB_NAME]
-    posts, channels, users = db.posts, db.channels, db.users
+    posts, channels, users, deletions = db.posts, db.channels, db.users, db.deletions
     await posts.create_index("chat_id")
+    await deletions.create_index("due")
     await refresh_channels()
 
 
@@ -104,3 +105,18 @@ async def add_user(uid: int):
 
 async def count_users() -> int:
     return await users.count_documents({})
+
+
+# ---------- scheduled auto-delete (survives restarts) ----------
+async def schedule_delete(chat_id: int, message_id: int, seconds: int):
+    if seconds and seconds > 0:
+        await deletions.insert_one(
+            {"chat_id": chat_id, "message_id": message_id, "due": time.time() + seconds}
+        )
+
+
+async def pop_due(limit: int = 200):
+    docs = [d async for d in deletions.find({"due": {"$lte": time.time()}}).limit(limit)]
+    if docs:
+        await deletions.delete_many({"_id": {"$in": [d["_id"] for d in docs]}})
+    return docs

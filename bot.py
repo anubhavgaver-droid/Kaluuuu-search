@@ -1,10 +1,12 @@
 import asyncio
 import logging
 import os
+from collections import defaultdict
 
 from aiohttp import ClientSession, ClientTimeout, web
 from pyrogram import Client
 from pyrogram.enums import ParseMode
+from pyrogram.errors import FloodWait
 
 import database as db
 from config import Config
@@ -28,6 +30,34 @@ async def _keep_alive(url: str):
                 pass
 
 
+async def _delete_ids(client, chat_id, ids):
+    try:
+        await client.delete_messages(chat_id, ids)
+    except FloodWait as e:
+        await asyncio.sleep(e.value + 1)
+    except Exception:
+        # one bad id (e.g. no right to delete a user's message) must not block the rest
+        for i in ids:
+            try:
+                await client.delete_messages(chat_id, i)
+            except Exception:
+                pass
+
+
+async def _deleter(client):
+    """Deletes scheduled messages when due. Stored in MongoDB, so restarts don't lose them."""
+    while True:
+        await asyncio.sleep(15)
+        try:
+            by_chat = defaultdict(list)
+            for d in await db.pop_due():
+                by_chat[d["chat_id"]].append(d["message_id"])
+            for chat_id, ids in by_chat.items():
+                await _delete_ids(client, chat_id, ids)
+        except Exception:
+            logging.exception("auto-delete loop error")
+
+
 class Bot(Client):
     def __init__(self):
         super().__init__(
@@ -41,7 +71,7 @@ class Bot(Client):
             in_memory=True,  # Render's disk is wiped on every deploy
         )
         self._runner = None
-        self._ping_task = None
+        self._tasks = []
 
     async def start(self):
         # web server first, so Render sees the open port quickly
@@ -56,15 +86,17 @@ class Bot(Client):
         await super().start()
         await db.setup()
         me = await self.get_me()
+        Config.BOT_USERNAME = me.username
         logging.info("Bot started as @%s", me.username)
 
+        self._tasks.append(asyncio.create_task(_deleter(self)))
         url = os.getenv("RENDER_EXTERNAL_URL")  # set automatically by Render
         if url:
-            self._ping_task = asyncio.create_task(_keep_alive(url))
+            self._tasks.append(asyncio.create_task(_keep_alive(url)))
 
     async def stop(self, *args):
-        if self._ping_task:
-            self._ping_task.cancel()
+        for t in self._tasks:
+            t.cancel()
         if self._runner:
             await self._runner.cleanup()
         await super().stop()
