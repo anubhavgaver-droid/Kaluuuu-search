@@ -6,7 +6,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import database as db
 import search_engine as engine
 from config import Config
-from utils import manual_id, parse_link, parse_post
+from utils import diagnose, get_text, manual_id, parse_link, parse_post, post_link
 
 admin = filters.user(Config.ADMINS) & filters.private
 
@@ -26,7 +26,8 @@ async def add(client, message):
     data = parse_post(parts[1])
     if not data or not data["title"]:
         return await message.reply_text(
-            "❌ Couldn't read that. Need a story name, a post link, and the channel ID for private posts."
+            "❌ Couldn't read that. Need a story name and a t.me link (post number optional). "
+            "Private stories also need the channel ID, e.g. -1001234567890."
         )
     await db.add_post(manual_id(data), data)
     kind = "🔒 Private" if data["is_private"] else "🌐 Public"
@@ -70,4 +71,29 @@ async def stats(client, message):
         f"Posts: {await db.count_posts()}\n"
         f"Channels: {len(await db.list_channels())}\n"
         f"Users: {await db.count_users()}"
+    )
+
+
+@Client.on_message(filters.command("parse") & admin)
+async def parse_cmd(client, message):
+    src = message.reply_to_message
+    if not src:
+        return await message.reply_text(
+            "Forward a post from your channel to me, then reply to it with /parse.\n"
+            "I'll show exactly how I read it."
+        )
+    text = get_text(src)
+    seen = html.escape(text[:400]) or "(empty)"
+    data = parse_post(text) if text.strip() else None
+    if not data or not data["title"]:
+        return await message.reply_text(
+            f"❌ Skipped: <b>{html.escape(diagnose(text))}</b>\n\nI see this text:\n<code>{seen}</code>"
+        )
+    await message.reply_text(
+        "✅ Readable\n"
+        f"Title: <b>{html.escape(data['title'])}</b>\n"
+        f"Tags: {html.escape(' '.join(data['hashtags']) or '-')}\n"
+        f"Type: {'🔒 Private' if data['is_private'] else '🌐 Public'}\n"
+        f"Link: {html.escape(post_link(data))}",
+        disable_web_page_preview=True,
     )

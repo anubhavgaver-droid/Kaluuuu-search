@@ -14,9 +14,10 @@ ADMIN_HELP = (
     "/connect <code>-100id</code> – connect a channel (bot must be admin there)\n"
     "/disconnect <code>-100id</code> [purge] – disconnect (purge also deletes its posts)\n"
     "/channels – connected channels\n"
-    "/index <code>-100id last_msg_id [first_msg_id]</code> – index old posts\n"
+    "/index <code>-100id [last_msg_id] [first_msg_id]</code> – index old posts\n"
     "/add <code>(post text in channel format)</code> – add a post manually\n"
     "/delete <code>name or link</code> – delete a post\n"
+    "/parse – reply to a forwarded post to see how I read it\n"
     "/stats – statistics"
 )
 
