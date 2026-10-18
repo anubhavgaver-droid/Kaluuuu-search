@@ -2,14 +2,8 @@ from pyrogram import Client, filters
 
 import database as db
 from config import Config
+import texts
 from delivery import deliver
-
-USER_HELP = (
-    "👋 <b>Welcome!</b>\n\n"
-    "Send me the name of a story/post and I'll find it for you.\n"
-    "Spelling mistakes are fine. You can also search by hashtag, e.g. <code>#romance</code>.\n"
-    "You can search in groups too - I'll reply there with your post."
-)
 
 ADMIN_HELP = (
     "\n\n🛠 <b>Admin commands</b>\n"
@@ -33,7 +27,7 @@ async def start(client, message):
         await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)
         return await deliver(client, message.from_user.id, message.command[1][1:])
 
-    text = USER_HELP
+    text = texts.welcome()
     if message.from_user.id in Config.ADMINS:
         text += ADMIN_HELP
     await message.reply_text(text)
