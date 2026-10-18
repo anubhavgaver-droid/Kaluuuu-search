@@ -189,3 +189,13 @@ def request_done(name: str, ok: bool) -> str:
 def request_list(rows: list, total: int) -> str:
     lines = [f"{BULLET} <code>{html.escape(r['query'][:60])}</code> - {html.escape(r.get('user_name', '?')[:20])}" for r in rows]
     return _box("📨 <b>PENDING REQUESTS</b>", f"📦 <b>Total pending:</b> {total}", LINE, *(lines or ["Nothing pending 🎉"]))
+
+
+def not_your_search() -> str:
+    return _box(
+        "🙅 <b>NOT YOUR SEARCH</b>",
+        "This result was searched by someone else.",
+        "Please search your own story 🔍",
+        LINE,
+        "👇 <i>Go to the group and search yours</i>",
+    )

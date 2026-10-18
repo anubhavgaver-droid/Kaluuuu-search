@@ -7,7 +7,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import database as db
 import texts
 from config import Config
-from utils import post_link
+from utils import make_start_payload, post_link
 
 
 def delete_note() -> str:
@@ -16,8 +16,8 @@ def delete_note() -> str:
     return f"\n⏳ <i>Auto-deletes in {max(1, Config.AUTO_DELETE // 60)} min</i>"
 
 
-def deep_link(pid: str) -> str:
-    return f"https://t.me/{Config.BOT_USERNAME}?start=p{pid}"
+def deep_link(pid: str, owner_id=None) -> str:
+    return f"https://t.me/{Config.BOT_USERNAME}?start={make_start_payload(pid, owner_id)}"
 
 
 def results_text(mode, hits, user_html, query, elapsed) -> str:
@@ -34,12 +34,12 @@ def nav_row(prefix: str, sid: str, page: int, pages: int) -> list:
     return row
 
 
-def results_keyboard(hits: list, group: bool, sid=None, page: int = 0, pages: int = 1) -> InlineKeyboardMarkup:
+def results_keyboard(hits: list, group: bool, sid=None, page: int = 0, pages: int = 1, owner_id=None) -> InlineKeyboardMarkup:
     rows = []
     for p in hits:
         label = f"{'🔒' if p['is_private'] else '📖'} {p['title'][:42]}"
         if group:  # groups: always go through the bot's PM (deep link)
-            rows.append([InlineKeyboardButton(label, url=deep_link(p["_id"]))])
+            rows.append([InlineKeyboardButton(label, url=deep_link(p["_id"], owner_id))])
         elif p["is_private"]:
             rows.append([InlineKeyboardButton(label, callback_data=f"o:{p['_id']}")])
         else:

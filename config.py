@@ -30,3 +30,5 @@ class Config:
     # story requests go to this chat/channel id (blank = send to every admin in ADMINS)
     REQUEST_CHAT_ID = int(os.getenv("REQUEST_CHAT_ID") or 0)
     REQUEST_LIMIT = int(os.getenv("REQUEST_LIMIT", 5))  # requests per user per 24h
+    # shown on the "search your own story" button
+    GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/pratilipifm0900")

@@ -139,3 +139,32 @@ async def index_message_ex(message):
 
 async def index_message(message):
     return (await index_message_ex(message))[0]
+
+
+# ---------- deep-link payloads: q<post id>_<owner id in base36> ----------
+_B36 = "0123456789abcdefghijklmnopqrstuvwxyz"
+
+
+def to_b36(n: int) -> str:
+    s = ""
+    while n:
+        n, r = divmod(n, 36)
+        s = _B36[r] + s
+    return s or "0"
+
+
+def make_start_payload(pid: str, owner_id=None) -> str:
+    return f"q{pid}_{to_b36(owner_id)}" if owner_id else f"p{pid}"
+
+
+def parse_start_payload(payload: str):
+    """-> (post id, owner id or None) or None. 'p...' = old links without an owner."""
+    if payload.startswith("q") and "_" in payload:
+        pid, owner = payload[1:].rsplit("_", 1)
+        try:
+            return pid, int(owner, 36)
+        except ValueError:
+            return None
+    if payload.startswith("p"):
+        return payload[1:], None
+    return None
