@@ -15,10 +15,12 @@ admin = filters.user(Config.ADMINS) & filters.private
 
 
 # ---------- auto indexing ----------
+# group=2: Pyrogram runs only ONE matching handler per group number, so indexing must not share
+# group 0 with the commands (/filters, /request ...) or it would swallow every group message.
 WATCH = filters.channel | filters.group
 
 
-@Client.on_message(WATCH & (filters.text | filters.caption))
+@Client.on_message(WATCH & (filters.text | filters.caption), group=2)
 async def auto_index(client, message):
     chat = message.chat
     if not db.is_connected(chat.id):
@@ -32,13 +34,13 @@ async def auto_index(client, message):
         logging.info("Indexed post %s in %s (%s)", message.id, chat.id, "new" if r else "updated")
 
 
-@Client.on_edited_message(WATCH & (filters.text | filters.caption))
+@Client.on_edited_message(WATCH & (filters.text | filters.caption), group=2)
 async def auto_update(client, message):
     if db.is_connected(message.chat.id):
         await index_message_ex(message)
 
 
-@Client.on_deleted_messages(WATCH)
+@Client.on_deleted_messages(WATCH, group=2)
 async def auto_delete(client, messages):
     for m in messages:
         if m.chat and db.is_connected(m.chat.id):
