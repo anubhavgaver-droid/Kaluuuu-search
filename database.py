@@ -124,9 +124,9 @@ async def pop_due(limit: int = 200):
 
 
 # ---------- story requests ----------
-async def add_request(user_id: int, user_name: str, query: str, where: str) -> str:
+async def add_request(user_id: int, user_name: str, query: str, where: str, chat_id=None) -> str:
     res = await requests.insert_one(
-        {"user_id": user_id, "user_name": user_name, "query": query, "where": where,
+        {"user_id": user_id, "user_name": user_name, "query": query, "where": where, "chat_id": chat_id,
          "status": "pending", "ts": time.time()}
     )
     return str(res.inserted_id)

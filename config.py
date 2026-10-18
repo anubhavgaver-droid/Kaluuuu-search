@@ -32,3 +32,5 @@ class Config:
     REQUEST_LIMIT = int(os.getenv("REQUEST_LIMIT", 5))  # requests per user per 24h
     # shown on the "search your own story" button
     GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/pratilipifm0900")
+    # request result posted in a group is removed after N seconds (0 = keep forever)
+    REQUEST_NOTICE_DELETE = int(os.getenv("REQUEST_NOTICE_DELETE_SECONDS", 3600))

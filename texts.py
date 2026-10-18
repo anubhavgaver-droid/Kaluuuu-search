@@ -14,6 +14,10 @@ def mention(user) -> str:
     return f'<a href="tg://user?id={user.id}">{name}</a>'
 
 
+def mention_id(uid: int, name: str) -> str:
+    return f'<a href="tg://user?id={uid}">{html.escape((name or "User")[:30])}</a>'
+
+
 def welcome() -> str:
     return _box(
         "👋 <b>WELCOME TO STORY SEARCH</b>",
@@ -180,10 +184,23 @@ def request_admin(name: str, user_html: str, uid: int, where: str) -> str:
     )
 
 
-def request_done(name: str, ok: bool) -> str:
+def request_done(name: str, ok: bool, user_html=None) -> str:
+    who = [f"👤 <b>Requested by:</b> {user_html}"] if user_html else []
     if ok:
-        return _box("✅ <b>STORY ADDED</b>", f"{BULLET} <b>Story:</b> {html.escape(name[:80])}", LINE, "Search it now - it's available! 🎉")
-    return _box("❌ <b>REQUEST DECLINED</b>", f"{BULLET} <b>Story:</b> {html.escape(name[:80])}", LINE, "Sorry, this story couldn't be added right now.")
+        return _box(
+            "✅ <b>STORY ADDED</b>",
+            *who,
+            f"{BULLET} <b>Story:</b> {html.escape(name[:80])}",
+            LINE,
+            "Search it now - it's available! 🎉",
+        )
+    return _box(
+        "❌ <b>REQUEST DECLINED</b>",
+        *who,
+        f"{BULLET} <b>Story:</b> {html.escape(name[:80])}",
+        LINE,
+        "Sorry, this story couldn't be added right now.",
+    )
 
 
 def request_list(rows: list, total: int) -> str:
