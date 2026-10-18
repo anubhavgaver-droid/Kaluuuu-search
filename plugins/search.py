@@ -69,7 +69,7 @@ async def respond(message, q: str, group: bool) -> bool:
     await reply_temp(
         message,
         texts.results(mode, view, user, q, elapsed, page_info),
-        results_keyboard(view, group, sid, 0, pages),
+        results_keyboard(view, group, sid, 0, pages, owner_id=message.from_user.id),
     )
     return True
 
@@ -118,7 +118,7 @@ async def paginate(client, cq):
     try:
         await cq.message.edit_text(
             text + delete_note(),
-            reply_markup=results_keyboard(view, s["group"], sid, page, pages),
+            reply_markup=results_keyboard(view, s["group"], sid, page, pages, owner_id=s["user_id"]),
             disable_web_page_preview=True,
         )
     except MessageNotModified:

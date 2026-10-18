@@ -25,7 +25,7 @@ async def request_cmd(client, message):
     # already in the library?
     mode, hits = await engine.search(name)
     if mode == "exact":
-        return await reply_temp(message, texts.request_exists(user, name, hits), results_keyboard(hits, group))
+        return await reply_temp(message, texts.request_exists(user, name, hits), results_keyboard(hits, group, owner_id=message.from_user.id))
 
     if await db.count_requests(message.from_user.id, time.time() - 86400) >= Config.REQUEST_LIMIT:
         return await reply_temp(message, texts.request_limit(Config.REQUEST_LIMIT))

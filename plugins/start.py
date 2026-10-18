@@ -3,7 +3,9 @@ from pyrogram import Client, filters
 import database as db
 from config import Config
 import texts
-from delivery import deliver
+from delivery import deliver, send_temp
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from utils import parse_start_payload
 
 ADMIN_HELP = (
     "\n\n🛠 <b>Admin commands</b>\n"
@@ -23,10 +25,17 @@ ADMIN_HELP = (
 async def start(client, message):
     await db.add_user(message.from_user.id)
 
-    # deep link from a group: t.me/<bot>?start=p<post id>
-    if len(message.command) > 1 and message.command[1].startswith("p"):
-        await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)
-        return await deliver(client, message.from_user.id, message.command[1][1:])
+    # deep link from a group: t.me/<bot>?start=q<post id>_<owner id>
+    if len(message.command) > 1:
+        parsed = parse_start_payload(message.command[1])
+        if parsed:
+            pid, owner = parsed
+            await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)
+            if owner and owner != message.from_user.id:
+                # someone else's search result -> send them back to search their own
+                kb = InlineKeyboardMarkup([[InlineKeyboardButton("🔍 Search your own story", url=Config.GROUP_LINK)]])
+                return await send_temp(client, message.from_user.id, texts.not_your_search(), kb)
+            return await deliver(client, message.from_user.id, pid)
 
     text = texts.welcome()
     if message.from_user.id in Config.ADMINS:
