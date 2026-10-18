@@ -1,11 +1,12 @@
 import re
 import time
 
+from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
 
 from config import Config
 
-posts = channels = users = deletions = None
+posts = channels = users = deletions = requests = None
 _cache = {"data": [], "ts": 0.0, "dirty": True}
 _channel_ids = set()
 
@@ -16,9 +17,9 @@ def make_id(chat_id: int, message_id: int) -> str:
 
 async def setup():
     # Motor client is created here so it binds to the running event loop
-    global posts, channels, users, deletions
+    global posts, channels, users, deletions, requests
     db = AsyncIOMotorClient(Config.MONGO_URI)[Config.DB_NAME]
-    posts, channels, users, deletions = db.posts, db.channels, db.users, db.deletions
+    posts, channels, users, deletions, requests = db.posts, db.channels, db.users, db.deletions, db.requests
     await posts.create_index("chat_id")
     await deletions.create_index("due")
     await refresh_channels()
@@ -92,7 +93,7 @@ async def count_posts(chat_id=None) -> int:
 async def get_index():
     """In-memory copy of all posts for fast fuzzy search (refreshed when data changes)."""
     if _cache["dirty"] or time.time() - _cache["ts"] > 300:
-        _cache["data"] = [d async for d in posts.find({}, {"added_at": 0})]
+        _cache["data"] = [d async for d in posts.find({})]
         _cache["ts"] = time.time()
         _cache["dirty"] = False
     return _cache["data"]
@@ -120,3 +121,35 @@ async def pop_due(limit: int = 200):
     if docs:
         await deletions.delete_many({"_id": {"$in": [d["_id"] for d in docs]}})
     return docs
+
+
+# ---------- story requests ----------
+async def add_request(user_id: int, user_name: str, query: str, where: str) -> str:
+    res = await requests.insert_one(
+        {"user_id": user_id, "user_name": user_name, "query": query, "where": where,
+         "status": "pending", "ts": time.time()}
+    )
+    return str(res.inserted_id)
+
+
+async def count_requests(user_id: int, since: float) -> int:
+    return await requests.count_documents({"user_id": user_id, "ts": {"$gte": since}})
+
+
+async def get_request(rid: str):
+    try:
+        return await requests.find_one({"_id": ObjectId(rid)})
+    except Exception:
+        return None
+
+
+async def set_request_status(rid: str, status: str):
+    await requests.update_one({"_id": ObjectId(rid)}, {"$set": {"status": status}})
+
+
+async def pending_requests(limit: int = 20):
+    return [r async for r in requests.find({"status": "pending"}).sort("ts", -1).limit(limit)]
+
+
+async def count_pending() -> int:
+    return await requests.count_documents({"status": "pending"})

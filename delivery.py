@@ -24,7 +24,17 @@ def results_text(mode, hits, user_html, query, elapsed) -> str:
     return texts.results(mode, hits, user_html, query, elapsed) + delete_note()
 
 
-def results_keyboard(hits: list, group: bool) -> InlineKeyboardMarkup:
+def nav_row(prefix: str, sid: str, page: int, pages: int) -> list:
+    row = []
+    if page > 0:
+        row.append(InlineKeyboardButton("⬅️ Back", callback_data=f"{prefix}:{sid}:{page - 1}"))
+    row.append(InlineKeyboardButton(f"📄 {page + 1}/{pages}", callback_data="noop"))
+    if page < pages - 1:
+        row.append(InlineKeyboardButton("Next ➡️", callback_data=f"{prefix}:{sid}:{page + 1}"))
+    return row
+
+
+def results_keyboard(hits: list, group: bool, sid=None, page: int = 0, pages: int = 1) -> InlineKeyboardMarkup:
     rows = []
     for p in hits:
         label = f"{'🔒' if p['is_private'] else '📖'} {p['title'][:42]}"
@@ -34,6 +44,8 @@ def results_keyboard(hits: list, group: bool) -> InlineKeyboardMarkup:
             rows.append([InlineKeyboardButton(label, callback_data=f"o:{p['_id']}")])
         else:
             rows.append([InlineKeyboardButton(label, url=post_link(p))])
+    if sid and pages > 1:
+        rows.append(nav_row("pg", sid, page, pages))
     return InlineKeyboardMarkup(rows)
 
 

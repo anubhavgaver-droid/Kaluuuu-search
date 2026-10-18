@@ -21,5 +21,12 @@ class Config:
     # Auto-delete bot/search messages after N seconds (0 = off)
     AUTO_DELETE = int(os.getenv("AUTO_DELETE_SECONDS", 300))
     # In groups only strong matches get a reply (avoids answering normal chat)
-    GROUP_MIN_SCORE = int(os.getenv("GROUP_MIN_SCORE", 75))
+    GROUP_MIN_SCORE = int(os.getenv("GROUP_MIN_SCORE", 65))
     BOT_USERNAME = ""  # filled at startup
+    SUGGEST_COUNT = int(os.getenv("SUGGEST_COUNT", 15))  # max AI suggestions (paginated)
+    RELAX_SCORE = int(os.getenv("RELAX_SCORE", 40))     # last-chance AI pass in PM
+    PAGE_SIZE = int(os.getenv("PAGE_SIZE", 5))          # results per page
+    TAG_MAX = int(os.getenv("TAG_MAX", 60))             # max results for a #hashtag search
+    # story requests go to this chat/channel id (blank = send to every admin in ADMINS)
+    REQUEST_CHAT_ID = int(os.getenv("REQUEST_CHAT_ID") or 0)
+    REQUEST_LIMIT = int(os.getenv("REQUEST_LIMIT", 5))  # requests per user per 24h

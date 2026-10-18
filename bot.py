@@ -7,6 +7,7 @@ from aiohttp import ClientSession, ClientTimeout, web
 from pyrogram import Client
 from pyrogram.enums import ParseMode
 from pyrogram.errors import FloodWait
+from pyrogram.types import BotCommand
 
 import database as db
 from config import Config
@@ -88,6 +89,17 @@ class Bot(Client):
         me = await self.get_me()
         Config.BOT_USERNAME = me.username
         logging.info("Bot started as @%s", me.username)
+
+        try:
+            await self.set_bot_commands(
+                [
+                    BotCommand("start", "Start the bot"),
+                    BotCommand("filters", "See all stories (tap a name to copy)"),
+                    BotCommand("request", "Request a story"),
+                ]
+            )
+        except Exception:
+            logging.warning("couldn't set bot commands")
 
         self._tasks.append(asyncio.create_task(_deleter(self)))
         url = os.getenv("RENDER_EXTERNAL_URL")  # set automatically by Render
