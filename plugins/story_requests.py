@@ -1,3 +1,4 @@
+import html
 import time
 
 from pyrogram import Client, filters
@@ -31,7 +32,7 @@ async def request_cmd(client, message):
         return await reply_temp(message, texts.request_limit(Config.REQUEST_LIMIT))
 
     where = "Private chat" if not group else (message.chat.title or "Group")
-    rid = await db.add_request(message.from_user.id, message.from_user.first_name or "User", name, where)
+    rid = await db.add_request(message.from_user.id, message.from_user.first_name or "User", name, where, message.chat.id)
 
     kb = InlineKeyboardMarkup(
         [[InlineKeyboardButton("✅ Added", callback_data=f"rq:ok:{rid}"),
@@ -61,15 +62,28 @@ async def request_decision(client, cq):
     ok = action == "ok"
     await db.set_request_status(rid, "added" if ok else "rejected")
 
-    reachable = True
-    try:  # permanent message (not auto-deleted) so the user doesn't miss it
-        await client.send_message(r["user_id"], texts.request_done(r["query"], ok))
-    except Exception:
-        reachable = False
+    chat_id = r.get("chat_id")
+    in_group = bool(chat_id) and chat_id != r["user_id"]  # a private chat has the same id as the user
+    notified = None
+    if in_group:  # tag the user in the group where they asked
+        try:
+            sent = await client.send_message(
+                chat_id,
+                texts.request_done(r["query"], ok, texts.mention_id(r["user_id"], r.get("user_name", "User"))),
+            )
+            if Config.REQUEST_NOTICE_DELETE:
+                await db.schedule_delete(chat_id, sent.id, Config.REQUEST_NOTICE_DELETE)
+            notified = f"📣 User tagged in <b>{html.escape(r.get('where', 'the group'))}</b>"
+        except Exception:
+            pass
+    if notified is None:  # asked in PM (or the group message failed) -> PM, kept (not auto-deleted)
+        try:
+            await client.send_message(r["user_id"], texts.request_done(r["query"], ok))
+            notified = "📩 User notified in PM"
+        except Exception:
+            notified = "⚠️ <i>User couldn't be notified (hasn't started the bot)</i>"
 
-    label = ("✅ <b>Marked as added</b>" if ok else "❌ <b>Rejected</b>") + f" by {texts.mention(cq.from_user)}"
-    if not reachable:
-        label += "\n⚠️ <i>User couldn't be notified (hasn't started the bot)</i>"
+    label = ("✅ <b>Marked as added</b>" if ok else "❌ <b>Rejected</b>") + f" by {texts.mention(cq.from_user)}\n{notified}"
     try:
         await cq.message.edit_text(f"{cq.message.text.html}\n\n{label}", reply_markup=None)
     except Exception:
