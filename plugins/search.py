@@ -20,13 +20,14 @@ GROUP_IGNORE = {
 
 
 async def ai_thinking(message):
-    """Short 'AI Search' effect (~1.8s): shown, edited once, then deleted."""
+    """'AI Search' effect (~2s): progress bar animates through a few frames, then the message is deleted."""
     m = None
     try:
         m = await message.reply_text(texts.ai_frame(0))
-        await asyncio.sleep(0.9)
-        await m.edit_text(texts.ai_frame(1))
-        await asyncio.sleep(0.9)
+        for i in range(1, texts.AI_FRAME_COUNT):
+            await asyncio.sleep(0.5)
+            await m.edit_text(texts.ai_frame(i))
+        await asyncio.sleep(0.5)
     except Exception:
         pass
     finally:
