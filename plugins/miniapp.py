@@ -3,6 +3,7 @@ from pyrogram.enums import ChatType
 from pyrogram.types import InlineKeyboardMarkup
 
 import database as db
+import guards
 import texts
 from config import Config
 from delivery import miniapp_button, reply_temp
@@ -10,6 +11,8 @@ from delivery import miniapp_button, reply_temp
 
 @Client.on_message(filters.command(["app", "miniapp"]))
 async def open_app(client, message):
+    if guards.group_blocked(message):
+        return
     await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)
     btn = miniapp_button(message.chat.type == ChatType.PRIVATE)
     if not btn:

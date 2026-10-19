@@ -6,6 +6,7 @@ from pyrogram.errors import MessageNotModified
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import database as db
+import guards
 import sessions
 import texts
 from config import Config
@@ -86,9 +87,14 @@ def _session(cq, parts_len: int):
 
 @Client.on_message(filters.command(["filters", "stories", "list"]))
 async def stories(client, message):
-    if not message.from_user:
+    if not message.from_user or guards.group_blocked(message):
         return
     await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)
+    c = guards.cooldown(message.from_user.id, "filters")
+    if c != "ok":
+        if c == "warn":
+            await reply_temp(message, texts.slow_down())
+        return
     arg = " ".join(message.command[1:]).strip().lower()
     index = await db.get_index()
 

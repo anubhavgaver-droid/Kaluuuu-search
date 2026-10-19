@@ -9,6 +9,7 @@ from pyrogram.errors import FloodWait
 
 import database as db
 from config import Config
+from notifier import fulfil_requests
 from utils import get_text, index_message_ex, parse_link
 
 admin = filters.user(Config.ADMINS) & filters.private
@@ -32,6 +33,11 @@ async def auto_index(client, message):
         logging.info("Skipped post %s in %s: %s", message.id, chat.id, why)
     else:
         logging.info("Indexed post %s in %s (%s)", message.id, chat.id, "new" if r else "updated")
+        if r:  # brand-new story: close matching requests and notify those users
+            try:
+                await fulfil_requests(client, await db.get_post(db.make_id(chat.id, message.id)))
+            except Exception:
+                logging.exception("fulfil_requests failed")
 
 
 @Client.on_edited_message(WATCH & (filters.text | filters.caption), group=2)

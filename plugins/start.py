@@ -17,7 +17,12 @@ ADMIN_HELP = (
     "/delete <code>name or link</code> – delete a post\n"
     "/parse – reply to a forwarded post to see how I read it\n"
     "/requests – pending story requests\n"
-    "/stats – statistics"
+    "/missing – searches that found nothing (<code>/missing clear</code>)\n"
+    "/stats – statistics\n"
+    "/broadcast – reply to a message (or add text) to send it to all users\n"
+    "/ban <code>id [reason]</code> · /unban <code>id</code>\n"
+    "/allowgroup · /denygroup (inside a group) · /groups\n"
+    "/backup – send a database backup · /restore – reply to a backup file"
 )
 
 

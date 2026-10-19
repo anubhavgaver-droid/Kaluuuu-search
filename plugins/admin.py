@@ -6,6 +6,7 @@ from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import database as db
 import search_engine as engine
 from config import Config
+from notifier import fulfil_requests
 from utils import diagnose, get_text, manual_id, parse_link, parse_post, post_link
 
 admin = filters.user(Config.ADMINS) & filters.private
@@ -29,7 +30,13 @@ async def add(client, message):
             "❌ Couldn't read that. Need a story name and a t.me link (post number optional). "
             "Private stories also need the channel ID, e.g. -1001234567890."
         )
-    await db.add_post(manual_id(data), data)
+    pid = manual_id(data)
+    new = await db.add_post(pid, data)
+    if new:
+        try:
+            await fulfil_requests(client, await db.get_post(pid))
+        except Exception:
+            pass
     kind = "🔒 Private" if data["is_private"] else "🌐 Public"
     await message.reply_text(f"✅ Added: <b>{html.escape(data['title'])}</b> ({kind})")
 
@@ -62,16 +69,6 @@ async def delete_cb(client, cq):
     ok = await db.delete_post(cq.data[2:])
     await cq.answer("🗑 Deleted" if ok else "Already deleted", show_alert=False)
     await cq.message.edit_text("🗑 Post deleted." if ok else "Already deleted.")
-
-
-@Client.on_message(filters.command("stats") & admin)
-async def stats(client, message):
-    await message.reply_text(
-        f"📊 <b>Stats</b>\n"
-        f"Posts: {await db.count_posts()}\n"
-        f"Channels: {len(await db.list_channels())}\n"
-        f"Users: {await db.count_users()}"
-    )
 
 
 @Client.on_message(filters.command("parse") & admin)

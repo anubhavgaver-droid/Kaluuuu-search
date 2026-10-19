@@ -6,11 +6,13 @@ from pyrogram import Client, filters
 from pyrogram.errors import MessageNotModified
 
 import database as db
+import guards
 import search_engine as engine
 import sessions
 import texts
 from config import Config
 from delivery import deliver, delete_note, reply_temp, results_keyboard
+from tracking import track_search
 
 # normal chat words the bot should never answer in a group
 GROUP_IGNORE = {
@@ -46,6 +48,8 @@ async def respond(message, q: str, group: bool) -> bool:
     if mode == "none" and not group and not q.startswith("#"):
         mode, hits = await engine.search(q, relaxed=True)  # last-chance AI pass
     elapsed = time.perf_counter() - t0
+    if hits or not group:  # group chatter that matched nothing is not worth logging
+        await track_search(q, bool(hits), message.from_user.id)
 
     if not hits:
         if group:
@@ -81,16 +85,23 @@ async def on_pm_query(client, message):
     await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)
     if len(q) < 2:
         return await reply_temp(message, texts.too_short())
+    c = guards.cooldown(message.from_user.id)
+    if c != "ok":
+        if c == "warn":
+            await reply_temp(message, texts.slow_down())
+        return
     await respond(message, q, group=False)
 
 
 # ---- group search (group=1 so it never competes with the indexing handlers) ----
 @Client.on_message(filters.group & filters.text & ~filters.regex(r"^/") & ~filters.bot, group=1)
 async def on_group_query(client, message):
-    if not message.from_user or db.is_connected(message.chat.id):
+    if not message.from_user or db.is_connected(message.chat.id) or guards.group_blocked(message):
         return
     q = message.text.strip()
     if not (4 <= len(q) <= 80) or q.lower() in GROUP_IGNORE:
+        return
+    if guards.cooldown(message.from_user.id) != "ok":
         return
     if await respond(message, q, group=True):
         await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)  # needs delete right

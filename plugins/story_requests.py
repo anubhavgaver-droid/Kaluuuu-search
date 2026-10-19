@@ -5,17 +5,24 @@ from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import database as db
+import guards
 import search_engine as engine
 import texts
 from config import Config
 from delivery import reply_temp, results_keyboard
+from notifier import admin_targets, notify_request_result
 
 
 @Client.on_message(filters.command("request"))
 async def request_cmd(client, message):
-    if not message.from_user:
+    if not message.from_user or guards.group_blocked(message):
         return
     await db.schedule_delete(message.chat.id, message.id, Config.AUTO_DELETE)
+    c = guards.cooldown(message.from_user.id, "request", 5)
+    if c != "ok":
+        if c == "warn":
+            await reply_temp(message, texts.slow_down())
+        return
     name = " ".join(message.command[1:]).strip()
     if len(name) < 3:
         return await reply_temp(message, texts.request_usage())
@@ -26,7 +33,9 @@ async def request_cmd(client, message):
     # already in the library?
     mode, hits = await engine.search(name)
     if mode == "exact":
-        return await reply_temp(message, texts.request_exists(user, name, hits), results_keyboard(hits, group, owner_id=message.from_user.id))
+        return await reply_temp(
+            message, texts.request_exists(user, name, hits), results_keyboard(hits, group, owner_id=message.from_user.id)
+        )
 
     if await db.count_requests(message.from_user.id, time.time() - 86400) >= Config.REQUEST_LIMIT:
         return await reply_temp(message, texts.request_limit(Config.REQUEST_LIMIT))
@@ -38,8 +47,7 @@ async def request_cmd(client, message):
         [[InlineKeyboardButton("✅ Added", callback_data=f"rq:ok:{rid}"),
           InlineKeyboardButton("❌ Reject", callback_data=f"rq:no:{rid}")]]
     )
-    targets = [Config.REQUEST_CHAT_ID] if Config.REQUEST_CHAT_ID else Config.ADMINS
-    for t in targets:
+    for t in admin_targets():
         try:
             await client.send_message(t, texts.request_admin(name, user, message.from_user.id, where), reply_markup=kb)
         except Exception:
@@ -61,27 +69,7 @@ async def request_decision(client, cq):
 
     ok = action == "ok"
     await db.set_request_status(rid, "added" if ok else "rejected")
-
-    chat_id = r.get("chat_id")
-    in_group = bool(chat_id) and chat_id != r["user_id"]  # a private chat has the same id as the user
-    notified = None
-    if in_group:  # tag the user in the group where they asked
-        try:
-            sent = await client.send_message(
-                chat_id,
-                texts.request_done(r["query"], ok, texts.mention_id(r["user_id"], r.get("user_name", "User"))),
-            )
-            if Config.REQUEST_NOTICE_DELETE:
-                await db.schedule_delete(chat_id, sent.id, Config.REQUEST_NOTICE_DELETE)
-            notified = f"📣 User tagged in <b>{html.escape(r.get('where', 'the group'))}</b>"
-        except Exception:
-            pass
-    if notified is None:  # asked in PM (or the group message failed) -> PM, kept (not auto-deleted)
-        try:
-            await client.send_message(r["user_id"], texts.request_done(r["query"], ok))
-            notified = "📩 User notified in PM"
-        except Exception:
-            notified = "⚠️ <i>User couldn't be notified (hasn't started the bot)</i>"
+    notified = await notify_request_result(client, r, ok)
 
     label = ("✅ <b>Marked as added</b>" if ok else "❌ <b>Rejected</b>") + f" by {texts.mention(cq.from_user)}\n{notified}"
     try:
