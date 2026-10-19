@@ -21,7 +21,7 @@ ADMIN_HELP = (
     "/stats – statistics\n"
     "/broadcast – reply to a message (or add text) to send it to all users\n"
     "/ban <code>id [reason]</code> · /unban <code>id</code>\n"
-    "/allowgroup · /denygroup (inside a group) · /groups\n"
+    "/allowgroup · /denygroup (inside a group, or with a group id/@username) · /groups\n"
     "/backup – send a database backup · /restore – reply to a backup file"
 )
 

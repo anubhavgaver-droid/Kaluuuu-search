@@ -1,9 +1,11 @@
 import asyncio
 import html
+import re
 import time
 
 from pyrogram import Client, filters
 from pyrogram.errors import FloodWait, InputUserDeactivated, PeerIdInvalid, UserIsBlocked
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 import backup
 import database as db
@@ -150,22 +152,80 @@ async def missing(client, message):
     await message.reply_text(texts.missing_list(await db.top_misses(25), await db.count_misses()))
 
 
-# ---------------- allowed groups ----------------
-@Client.on_message(filters.command("allowgroup") & filters.group & admin_any)
+# ---------------- allowed groups (managed live, stored in MongoDB) ----------------
+GROUP_TYPES = ("GROUP", "SUPERGROUP")
+
+
+async def _group_arg(client, message):
+    """-> (chat id, title). No argument = the group the command was sent in; or pass -100id / @username / t.me link."""
+    arg = message.command[1] if len(message.command) > 1 else None
+    if not arg:
+        if message.chat.type.name in GROUP_TYPES:
+            return message.chat.id, message.chat.title or "Group"
+        return None, None
+    m = re.search(r"t\.me/([A-Za-z0-9_]{4,})", arg)
+    ref = m.group(1) if m else arg.lstrip("@")
+    try:
+        ref = int(ref)
+    except ValueError:
+        pass
+    try:
+        chat = await client.get_chat(ref)
+    except Exception:
+        return (ref, "Group") if isinstance(ref, int) else (None, None)  # a raw id is still fine for /denygroup
+    if chat.type.name not in GROUP_TYPES:
+        return None, None
+    return chat.id, chat.title or "Group"
+
+
+async def _say(message, text):
+    if message.chat.type.name == "PRIVATE":
+        return await message.reply_text(text)
+    return await reply_temp(message, text)  # in a group the reply cleans itself up
+
+
+def _groups_keyboard(rows):
+    return InlineKeyboardMarkup(
+        [[InlineKeyboardButton(f"🗑 {g.get('title', '?')[:35]}", callback_data=f"gd:{g['_id']}")] for g in rows[:20]]
+    ) if rows else None
+
+
+@Client.on_message(filters.command("allowgroup") & admin_any)
 async def allow_group(client, message):
-    await db.allow_group(message.chat.id, message.chat.title or "Group")
-    await reply_temp(message, "✅ <b>This group is now allowed.</b>\nFrom now on the bot works only in allowed groups.")
+    chat_id, title = await _group_arg(client, message)
+    if not chat_id:
+        return await _say(message, "Usage: send /allowgroup inside the group, or /allowgroup <code>-100id</code> / <code>@username</code> here.")
+    await db.allow_group(chat_id, title)
+    await _say(message, f"✅ <b>{html.escape(title)}</b> is now allowed.\nThe bot works only in allowed groups from now on (see /groups).")
 
 
-@Client.on_message(filters.command("denygroup") & filters.group & admin_any)
+@Client.on_message(filters.command("denygroup") & admin_any)
 async def deny_group(client, message):
-    await db.deny_group(message.chat.id)
-    await reply_temp(message, "🚫 <b>This group was removed from the allowed list.</b>")
+    chat_id, title = await _group_arg(client, message)
+    if not chat_id:
+        return await _say(message, "Usage: send /denygroup inside the group, or /denygroup <code>-100id</code> / <code>@username</code> here.")
+    await db.deny_group(chat_id)
+    left = len(await db.list_groups())
+    await _say(message, f"🚫 <b>{html.escape(title)}</b> removed." + ("" if left else "\nNo group is on the list now, so the bot works in every group again."))
 
 
 @Client.on_message(filters.command("groups") & admin)
 async def groups(client, message):
-    await message.reply_text(texts.groups_list(await db.list_groups()))
+    rows = await db.list_groups()
+    await message.reply_text(texts.groups_list(rows), reply_markup=_groups_keyboard(rows))
+
+
+@Client.on_callback_query(filters.regex(r"^gd:"))
+async def group_remove(client, cq):
+    if cq.from_user.id not in Config.ADMINS:
+        return await cq.answer("Admins only.", show_alert=True)
+    await db.deny_group(int(cq.data[3:]))
+    rows = await db.list_groups()
+    try:
+        await cq.message.edit_text(texts.groups_list(rows), reply_markup=_groups_keyboard(rows))
+    except Exception:
+        pass
+    await cq.answer("Removed")
 
 
 # ---------------- backup / restore ----------------
