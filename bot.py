@@ -10,6 +10,7 @@ from pyrogram.errors import FloodWait
 from pyrogram.types import BotCommand
 
 import database as db
+import webapp
 from config import Config
 
 logging.basicConfig(level=logging.INFO)
@@ -79,6 +80,7 @@ class Bot(Client):
         app = web.Application()
         app.router.add_get("/", _health)
         app.router.add_get("/health", _health)
+        webapp.setup(app)  # Mini App page + API
         self._runner = web.AppRunner(app)
         await self._runner.setup()
         await web.TCPSite(self._runner, "0.0.0.0", Config.PORT).start()
@@ -96,10 +98,24 @@ class Bot(Client):
                     BotCommand("start", "Start the bot"),
                     BotCommand("filters", "See all stories (tap a name to copy)"),
                     BotCommand("request", "Request a story"),
+                    BotCommand("app", "Open the Mini App"),
                 ]
             )
         except Exception:
             logging.warning("couldn't set bot commands")
+
+        if Config.WEBAPP_URL:  # menu button next to the message box opens the Mini App
+            try:
+                from pyrogram.types import MenuButtonWebApp, WebAppInfo
+
+                await self.set_chat_menu_button(
+                    menu_button=MenuButtonWebApp(text="🔍 Search", web_app=WebAppInfo(url=Config.WEBAPP_URL))
+                )
+                logging.info("Mini App: %s", Config.WEBAPP_URL)
+            except Exception:
+                logging.warning("couldn't set the Mini App menu button")
+        else:
+            logging.warning("BASE_URL / RENDER_EXTERNAL_URL not set - Mini App buttons are disabled")
 
         self._tasks.append(asyncio.create_task(_deleter(self)))
         url = os.getenv("RENDER_EXTERNAL_URL")  # set automatically by Render

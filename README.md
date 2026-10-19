@@ -44,3 +44,9 @@ admin in that story's channel (to check membership and make join links).
 - Everything (search results, links, join prompts, users' queries) auto-deletes after AUTO_DELETE_SECONDS (default 300).
   Admin command replies are not deleted.
 - In groups the bot only answers strong matches (GROUP_MIN_SCORE, default 75) and stays silent otherwise.
+
+## Mini App
+- Served by the same server: `https://<your-render-url>/app` (API under `/api/*`, checked with Telegram's signed initData).
+- Open it: /app command, the button under /start, or the bot's menu button (set automatically).
+- Search / genre chips / "Get link" -> deep link to the bot chat (same flow as the group results).
+- In groups the button is a link; for a clean in-group button create the app in @BotFather (/newapp) and set MINIAPP_LINK.

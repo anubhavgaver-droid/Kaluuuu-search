@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from pyrogram.enums import ChatMemberStatus
 from pyrogram.errors import UserNotParticipant
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup, WebAppInfo
 
 import database as db
 import texts
@@ -108,3 +108,12 @@ async def deliver(client, user_id: int, pid: str):
             ]
         ),
     )
+
+
+def miniapp_button(private: bool):
+    """Open-Mini-App button. In PM it opens the app directly; in groups it must be a link."""
+    if not Config.WEBAPP_URL:
+        return None
+    if private:
+        return InlineKeyboardButton("🚀 Open Mini App", web_app=WebAppInfo(url=Config.WEBAPP_URL))
+    return InlineKeyboardButton("🚀 Open Mini App", url=Config.MINIAPP_LINK or f"https://t.me/{Config.BOT_USERNAME}?start=app")

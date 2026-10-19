@@ -34,3 +34,10 @@ class Config:
     GROUP_LINK = os.getenv("GROUP_LINK", "https://t.me/pratilipifm0900")
     # request result posted in a group is removed after N seconds (0 = keep forever)
     REQUEST_NOTICE_DELETE = int(os.getenv("REQUEST_NOTICE_DELETE_SECONDS", 3600))
+
+    # ---- Mini App ----
+    # Public https URL of this server. On Render, RENDER_EXTERNAL_URL is set automatically.
+    BASE_URL = (os.getenv("BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
+    WEBAPP_URL = (BASE_URL + "/app") if BASE_URL else ""
+    # optional: direct link of the Mini App made in BotFather (/newapp), e.g. https://t.me/yourbot/app
+    MINIAPP_LINK = os.getenv("MINIAPP_LINK", "")

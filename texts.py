@@ -27,6 +27,7 @@ def welcome() -> str:
         f"{BULLET} Works in groups too",
         f"{BULLET} /filters - see all stories (tap a name to copy)",
         f"{BULLET} /request <i>name</i> - request a new story",
+        f"{BULLET} /app - open the Mini App",
         LINE,
     )
 
@@ -225,4 +226,14 @@ def genre_menu(total: int, page: int, pages: int) -> str:
         f"📄 <b>Page:</b> {page + 1}/{pages}",
         LINE,
         "👇 <i>Tap a genre to see its stories</i>",
+    )
+
+
+def miniapp_card() -> str:
+    return _box(
+        "🚀 <b>STORY SEARCH APP</b>",
+        f"{BULLET} Search every story in a clean app",
+        f"{BULLET} Tap a genre or type a name",
+        f"{BULLET} Tap <b>Get link</b> - it opens here in the bot",
+        LINE,
     )
