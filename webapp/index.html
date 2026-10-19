@@ -1,1 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>Story Search</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root{
+    --bg:var(--tg-theme-bg-color,#ffffff);
+    --text:var(--tg-theme-text-color,#14171a);
+    --hint:var(--tg-theme-hint-color,#7d8590);
+    --btn:var(--tg-theme-button-color,#2481cc);
+    --btntext:var(--tg-theme-button-text-color,#ffffff);
+    --card:var(--tg-theme-secondary-bg-color,#f1f3f6);
+    --line:rgba(125,133,144,.25);
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:16px/1.35 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:640px;margin:0 auto;padding:0 14px 28px}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px 0 10px}
+  h1{margin:0 0 10px;font-size:20px;font-weight:700;letter-spacing:.2px}
+  .search{display:flex;align-items:center;gap:8px;background:var(--card);border-radius:14px;padding:0 12px;border:1px solid transparent}
+  .search:focus-within{border-color:var(--btn)}
+  .search span{font-size:18px}
+  .search input{flex:1;min-width:0;height:46px;border:0;outline:0;background:transparent;color:var(--text);font-size:16px}
+  .search button{border:0;background:transparent;color:var(--hint);font-size:18px;padding:6px;display:none}
+  .chips{display:flex;gap:8px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none}
+  .chips::-webkit-scrollbar{display:none}
+  .chip{flex:none;border:1px solid var(--line);background:transparent;color:var(--text);border-radius:999px;padding:7px 13px;font-size:14px}
+  .chip.on{background:var(--btn);color:var(--btntext);border-color:var(--btn)}
+  .chip small{opacity:.65;margin-left:4px}
+  .status{display:flex;justify-content:space-between;color:var(--hint);font-size:13px;margin:14px 2px 8px}
+  .card{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:12px;margin-bottom:10px}
+  .ic{flex:none;width:42px;height:42px;border-radius:12px;background:var(--bg);display:grid;place-items:center;font-size:20px}
+  .title{flex:1;min-width:0;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;word-break:break-word}
+  .get{flex:none;border:0;border-radius:11px;background:var(--btn);color:var(--btntext);padding:9px 13px;font-size:14px;font-weight:600}
+  .get:active{transform:scale(.96)}
+  .sk{height:66px;background:linear-gradient(90deg,var(--card) 25%,var(--line) 50%,var(--card) 75%);background-size:200% 100%;animation:sh 1.2s infinite}
+  @keyframes sh{to{background-position:-200% 0}}
+  .empty{text-align:center;color:var(--hint);padding:46px 10px}
+  .empty b{display:block;font-size:34px;margin-bottom:8px}
+  footer{text-align:center;color:var(--hint);font-size:12px;margin-top:18px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📚 Story Search</h1>
+    <div class="search">
+      <span>🔍</span>
+      <input id="q" type="search" placeholder="Type a story name…" autocomplete="off" autocapitalize="off" enterkeyhint="search">
+      <button id="clr" aria-label="Clear">✕</button>
+    </div>
+    <div class="chips" id="chips"></div>
+  </header>
+  <div class="status"><span id="label"></span><span id="ms"></span></div>
+  <div id="list"></div>
+  <footer>Tap “Get link” - your link opens in the bot chat and auto-deletes in a few minutes.</footer>
+</div>
 
+<script>
+const tg = window.Telegram && window.Telegram.WebApp;
+const $ = s => document.querySelector(s);
+const input = $('#q'), list = $('#list'), chips = $('#chips'), label = $('#label'), msEl = $('#ms'), clr = $('#clr');
+let ctrl = null, timer = null;
+
+if (tg) { tg.ready(); tg.expand(); }
+
+function message(icon, text){
+  list.innerHTML = '';
+  const d = document.createElement('div'); d.className = 'empty';
+  const b = document.createElement('b'); b.textContent = icon;
+  d.append(b, document.createTextNode(text)); list.appendChild(d);
+}
+
+if (!tg || !tg.initData) {
+  message('📱', 'Please open this app from inside Telegram.');
+  throw new Error('not in telegram');
+}
+
+async function api(path, signal){
+  const r = await fetch(path, {headers: {'X-Init-Data': tg.initData}, signal});
+  if (!r.ok) throw new Error(r.status);
+  return r.json();
+}
+
+function skeleton(){
+  list.innerHTML = '';
+  for (let i = 0; i < 4; i++){ const d = document.createElement('div'); d.className = 'card sk'; list.appendChild(d); }
+}
+
+function card(r){
+  const el = document.createElement('div'); el.className = 'card';
+  const ic = document.createElement('div'); ic.className = 'ic'; ic.textContent = r.private ? '🔒' : '📖';
+  const t = document.createElement('div'); t.className = 'title'; t.textContent = r.title;
+  const b = document.createElement('button'); b.className = 'get'; b.textContent = 'Get link';
+  b.onclick = () => {
+    if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+    b.textContent = 'Opening…';
+    tg.openTelegramLink(r.link);          // deep link -> bot chat -> link / join check
+    setTimeout(() => tg.close(), 450);
+  };
+  el.append(ic, t, b);
+  return el;
+}
+
+const LABELS = {exact: '🔎 Best match', suggest: '🤔 Did you mean', latest: '🆕 Latest stories'};
+
+function show(d, q){
+  list.innerHTML = '';
+  if (!d.results.length){ label.textContent = ''; msEl.textContent = ''; return message('🙈', 'Nothing found. Try another spelling or a genre below.'); }
+  label.textContent = d.mode === 'tag' ? '🏷 ' + q : (LABELS[d.mode] || '');
+  msEl.textContent = d.ms !== undefined ? '⚡ ' + d.ms + ' ms' : (d.total ? d.total + ' stories' : '');
+  d.results.forEach(r => list.appendChild(card(r)));
+}
+
+async function run(){
+  const q = input.value.trim();
+  clr.style.display = input.value ? 'block' : 'none';
+  document.querySelectorAll('.chip').forEach(c => c.classList.toggle('on', '#' + c.dataset.tag === q));
+  if (ctrl) ctrl.abort();
+  ctrl = new AbortController();
+  skeleton();
+  try {
+    const d = q.length < 2 ? await api('/api/latest', ctrl.signal)
+                           : await api('/api/search?q=' + encodeURIComponent(q), ctrl.signal);
+    show(d, q);
+  } catch (e) {
+    if (e.name === 'AbortError') return;
+    message('⚠️', 'Something went wrong. Please try again.');
+  }
+}
+
+input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 350); });
+input.addEventListener('keydown', e => { if (e.key === 'Enter'){ input.blur(); clearTimeout(timer); run(); } });
+clr.onclick = () => { input.value = ''; run(); input.focus(); };
+
+(async () => {
+  try {
+    const g = await api('/api/genres');
+    g.genres.forEach(x => {
+      const c = document.createElement('button'); c.className = 'chip'; c.dataset.tag = x.tag;
+      c.textContent = x.tag.replace(/_/g, ' ');
+      const s = document.createElement('small'); s.textContent = x.count; c.appendChild(s);
+      c.onclick = () => { input.value = input.value.trim() === '#' + x.tag ? '' : '#' + x.tag; run(); };
+      chips.appendChild(c);
+    });
+  } catch (e) {}
+})();
+run();
+</script>
+</body>
+</html>
