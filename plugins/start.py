@@ -3,7 +3,7 @@ from pyrogram import Client, filters
 import database as db
 from config import Config
 import texts
-from delivery import deliver, send_temp
+from delivery import deliver, miniapp_button, send_temp
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from utils import parse_start_payload
 
@@ -37,7 +37,13 @@ async def start(client, message):
                 return await send_temp(client, message.from_user.id, texts.not_your_search(), kb)
             return await deliver(client, message.from_user.id, pid)
 
+    if len(message.command) > 1 and message.command[1] == "app":  # from the group's Mini App button
+        btn = miniapp_button(True)
+        if btn:
+            return await send_temp(client, message.from_user.id, texts.miniapp_card(), InlineKeyboardMarkup([[btn]]))
+
     text = texts.welcome()
     if message.from_user.id in Config.ADMINS:
         text += ADMIN_HELP
-    await message.reply_text(text)
+    btn = miniapp_button(True)
+    await message.reply_text(text, reply_markup=InlineKeyboardMarkup([[btn]]) if btn else None)
