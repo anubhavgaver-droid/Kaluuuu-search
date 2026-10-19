@@ -60,3 +60,4 @@ admin in that story's channel (to check membership and make join links).
 - **/broadcast**, **/backup** (also automatic every `BACKUP_EVERY_HOURS`), **/restore** (reply to a backup file).
 - **Mini App**: Trending tab, Favorites tab (star on every story).
 - **Hindi search**: Devanagari names match Roman titles and the other way round.
+- **Report -> Add new link**: on a broken-link report the admin taps 🔗 Add new link, replies with the corrected link, and the story is fixed instantly (stored in MongoDB). If the same story is also edited/re-indexed from the channel post, update that post too.

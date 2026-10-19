@@ -320,3 +320,28 @@ def auto_fulfilled(title: str, rows: list) -> str:
 def backup_caption(counts: dict) -> str:
     lines = [f"{BULLET} {k}: {v}" for k, v in counts.items()]
     return _box("💾 <b>DATABASE BACKUP</b>", *lines, LINE, "Reply to this file with /restore to load it back.")
+
+
+def set_link_prompt(title: str, pid: str, ref: str, user_html: str) -> str:
+    return _box(
+        "🔗 <b>SET NEW LINK</b>",
+        f"👤 {user_html}",
+        f"{BULLET} <b>Story:</b> {html.escape(title[:100])}",
+        f"ID: <code>{html.escape(pid)}</code>",
+        f"Ref: <code>{html.escape(ref)}</code>",
+        LINE,
+        "↩️ <b>Reply to this message</b> with the new link:",
+        f"{BULLET} public: <code>https://t.me/channel/45</code>",
+        f"{BULLET} private: the link, and the channel ID (<code>-100…</code>) on the next line",
+    )
+
+
+def link_changed(title: str, link: str, private: bool) -> str:
+    return _box(
+        "✅ <b>LINK UPDATED</b>",
+        f"{BULLET} <b>Story:</b> {html.escape(title[:100])}",
+        f"{BULLET} <b>Type:</b> {'🔒 Private' if private else '🌐 Public'}",
+        f"🔗 {html.escape(link)}",
+        LINE,
+        "Users get the new link from now on.",
+    )

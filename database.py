@@ -79,6 +79,12 @@ async def add_post(pid: str, data: dict) -> bool:
     return res.upserted_id is not None
 
 
+async def update_post_fields(pid: str, fields: dict) -> bool:
+    res = await posts.update_one({"_id": pid}, {"$set": fields})
+    _cache["dirty"] = True
+    return res.matched_count > 0
+
+
 async def delete_post(pid: str) -> bool:
     res = await posts.delete_one({"_id": pid})
     _cache["dirty"] = True
