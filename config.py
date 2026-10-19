@@ -40,4 +40,17 @@ class Config:
     BASE_URL = (os.getenv("BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
     WEBAPP_URL = (BASE_URL + "/app") if BASE_URL else ""
     # optional: direct link of the Mini App made in BotFather (/newapp), e.g. https://t.me/yourbot/app
-    MINIAPP_LINK = os.getenv("MINIAPP_LINK", "http://t.me/FILTERBYAC_BOT/Search")
+    MINIAPP_LINK = os.getenv("MINIAPP_LINK", "")
+
+    # ---- anti-abuse / access ----
+    SEARCH_COOLDOWN = float(os.getenv("SEARCH_COOLDOWN", 3))  # seconds between searches per user (admins exempt)
+    # (allowed groups are managed live from the bot: /allowgroup, /denygroup, /groups - stored in MongoDB)
+
+    # ---- force subscribe: users must join this channel before they get any link ----
+    FORCE_SUB_CHANNEL = int(os.getenv("FORCE_SUB_CHANNEL") or 0)  # channel id, bot must be admin there
+    FORCE_SUB_LINK = os.getenv("FORCE_SUB_LINK", "")              # public/invite link shown on the Join button
+
+    # ---- backup & broadcast ----
+    BACKUP_CHAT_ID = int(os.getenv("BACKUP_CHAT_ID") or 0)        # blank = first admin
+    BACKUP_EVERY_HOURS = int(os.getenv("BACKUP_EVERY_HOURS", 24))  # 0 = off
+    BROADCAST_DELAY = float(os.getenv("BROADCAST_DELAY", 0.06))   # seconds between messages (~16/s)

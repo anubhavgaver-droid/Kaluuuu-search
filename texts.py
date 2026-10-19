@@ -307,7 +307,8 @@ def groups_list(rows: list) -> str:
         "🏘 <b>ALLOWED GROUPS</b>",
         *(lines or ["None set - the bot works in every group."]),
         LINE,
-        "Use /allowgroup or /denygroup inside a group.",
+        "➕ <code>/allowgroup</code> inside a group, or <code>/allowgroup -100id</code> / <code>@username</code> here.",
+        "Tap a button below to remove a group.",
     )
 
 

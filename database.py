@@ -248,7 +248,6 @@ _group_ids = set()
 
 async def refresh_groups():
     _group_ids.clear()
-    _group_ids.update(Config.ALLOWED_GROUPS)
     async for g in groups.find({}):
         _group_ids.add(g["_id"])
 
