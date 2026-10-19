@@ -40,4 +40,4 @@ class Config:
     BASE_URL = (os.getenv("BASE_URL") or os.getenv("RENDER_EXTERNAL_URL") or "").rstrip("/")
     WEBAPP_URL = (BASE_URL + "/app") if BASE_URL else ""
     # optional: direct link of the Mini App made in BotFather (/newapp), e.g. https://t.me/yourbot/app
-    MINIAPP_LINK = os.getenv("MINIAPP_LINK", "http://t.me/FILTERBYAC_BOT/myapp")
+    MINIAPP_LINK = os.getenv("MINIAPP_LINK", "http://t.me/FILTERBYAC_BOT/Search")
