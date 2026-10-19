@@ -1,5 +1,6 @@
 import re
 import time
+from datetime import datetime, timedelta
 
 from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -7,6 +8,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from config import Config
 
 posts = channels = users = deletions = requests = None
+misses = searches = views = favs = groups = bans = meta = reports = None
 _cache = {"data": [], "ts": 0.0, "dirty": True}
 _channel_ids = set()
 
@@ -18,10 +20,20 @@ def make_id(chat_id: int, message_id: int) -> str:
 async def setup():
     # Motor client is created here so it binds to the running event loop
     global posts, channels, users, deletions, requests
+    global misses, searches, views, favs, groups, bans, meta, reports
     db = AsyncIOMotorClient(Config.MONGO_URI)[Config.DB_NAME]
     posts, channels, users, deletions, requests = db.posts, db.channels, db.users, db.deletions, db.requests
+    misses, searches, views, favs, groups, bans, meta, reports = (
+        db.misses, db.searches, db.views, db.favs, db.groups, db.bans, db.meta, db.reports
+    )
     await posts.create_index("chat_id")
     await deletions.create_index("due")
+    await searches.create_index("ts", expireAfterSeconds=30 * 86400)   # search log kept 30 days
+    await views.create_index("ts", expireAfterSeconds=60 * 86400)      # link-open log kept 60 days
+    await reports.create_index("ts", expireAfterSeconds=90 * 86400)
+    await favs.create_index([("uid", 1), ("pid", 1)], unique=True)
+    await refresh_groups()
+    await refresh_bans()
     await refresh_channels()
 
 
@@ -153,3 +165,191 @@ async def pending_requests(limit: int = 20):
 
 async def count_pending() -> int:
     return await requests.count_documents({"status": "pending"})
+
+
+# ---------- searches that found nothing ----------
+async def log_miss(q: str, norm: str):
+    await misses.update_one(
+        {"_id": norm}, {"$inc": {"count": 1}, "$set": {"q": q[:80], "last": time.time()}}, upsert=True
+    )
+
+
+async def top_misses(limit: int = 20):
+    return [d async for d in misses.find({}).sort("count", -1).limit(limit)]
+
+
+async def count_misses() -> int:
+    return await misses.count_documents({})
+
+
+async def clear_misses() -> int:
+    return (await misses.delete_many({})).deleted_count
+
+
+async def drop_misses(ids):
+    ids = list(ids)
+    if ids:
+        await misses.delete_many({"_id": {"$in": ids}})
+
+
+# ---------- search / view logs and stats ----------
+def _since(days: int):
+    return datetime.utcnow() - timedelta(days=days)
+
+
+async def log_search(q: str, found: bool, uid: int):
+    await searches.insert_one({"q": q.lower()[:80], "found": bool(found), "uid": uid, "ts": datetime.utcnow()})
+
+
+async def log_view(pid: str, uid: int):
+    await views.insert_one({"pid": pid, "uid": uid, "ts": datetime.utcnow()})
+
+
+async def search_counts(days: int = 1):
+    since = {"$gte": _since(days)}
+    return (
+        await searches.count_documents({"ts": since}),
+        await searches.count_documents({"ts": since, "found": True}),
+    )
+
+
+async def top_searches(days: int = 1, limit: int = 5):
+    pipe = [{"$match": {"ts": {"$gte": _since(days)}}}, {"$group": {"_id": "$q", "n": {"$sum": 1}}},
+            {"$sort": {"n": -1}}, {"$limit": limit}]
+    return [(x["_id"], x["n"]) async for x in searches.aggregate(pipe)]
+
+
+async def trending(days: int = 7, limit: int = 10):
+    """[(post id, opens)] most opened stories lately"""
+    pipe = [{"$match": {"ts": {"$gte": _since(days)}}}, {"$group": {"_id": "$pid", "n": {"$sum": 1}}},
+            {"$sort": {"n": -1}}, {"$limit": limit}]
+    return [(x["_id"], x["n"]) async for x in views.aggregate(pipe)]
+
+
+async def users_since(ts: float) -> int:
+    return await users.count_documents({"t": {"$gte": ts}})
+
+
+# ---------- favourites (Mini App) ----------
+async def fav_set(uid: int, pid: str, on: bool):
+    if on:
+        await favs.update_one({"uid": uid, "pid": pid}, {"$setOnInsert": {"ts": time.time()}}, upsert=True)
+    else:
+        await favs.delete_one({"uid": uid, "pid": pid})
+
+
+async def fav_ids(uid: int, limit: int = 300):
+    return [d["pid"] async for d in favs.find({"uid": uid}).sort("ts", -1).limit(limit)]
+
+
+# ---------- allowed groups ----------
+_group_ids = set()
+
+
+async def refresh_groups():
+    _group_ids.clear()
+    _group_ids.update(Config.ALLOWED_GROUPS)
+    async for g in groups.find({}):
+        _group_ids.add(g["_id"])
+
+
+def group_allowed(chat_id: int) -> bool:
+    return not _group_ids or chat_id in _group_ids  # nothing configured = every group works
+
+
+async def allow_group(chat_id: int, title: str):
+    await groups.update_one({"_id": chat_id}, {"$set": {"title": title}}, upsert=True)
+    _group_ids.add(chat_id)
+
+
+async def deny_group(chat_id: int):
+    await groups.delete_one({"_id": chat_id})
+    _group_ids.discard(chat_id)
+
+
+async def list_groups():
+    return [g async for g in groups.find({})]
+
+
+# ---------- bans ----------
+_banned = set()
+
+
+async def refresh_bans():
+    _banned.clear()
+    async for b in bans.find({}):
+        _banned.add(b["_id"])
+
+
+def is_banned(uid: int) -> bool:
+    return uid in _banned
+
+
+async def ban_user(uid: int, reason: str = ""):
+    await bans.update_one({"_id": uid}, {"$set": {"reason": reason[:100], "t": time.time()}}, upsert=True)
+    _banned.add(uid)
+
+
+async def unban_user(uid: int) -> bool:
+    res = await bans.delete_one({"_id": uid})
+    _banned.discard(uid)
+    return res.deleted_count > 0
+
+
+async def count_bans() -> int:
+    return await bans.count_documents({})
+
+
+# ---------- users / meta / reports ----------
+async def all_user_ids():
+    return [d["_id"] async for d in users.find({}, {"_id": 1})]
+
+
+async def remove_user(uid: int):
+    await users.delete_one({"_id": uid})
+
+
+async def get_meta(key: str, default=None):
+    d = await meta.find_one({"_id": key})
+    return d["v"] if d else default
+
+
+async def set_meta(key: str, value):
+    await meta.update_one({"_id": key}, {"$set": {"v": value}}, upsert=True)
+
+
+async def add_report(pid: str, uid: int) -> bool:
+    """False if this user already reported this story in the last 24h."""
+    if await reports.find_one({"pid": pid, "uid": uid, "ts": {"$gte": _since(1)}}):
+        return False
+    await reports.insert_one({"pid": pid, "uid": uid, "ts": datetime.utcnow()})
+    return True
+
+
+# ---------- backup / restore ----------
+def _colls():
+    return {"posts": posts, "channels": channels, "users": users, "requests": requests,
+            "groups": groups, "bans": bans, "misses": misses, "favs": favs}
+
+
+async def export_all() -> dict:
+    out = {}
+    for name, coll in _colls().items():
+        out[name] = [d async for d in coll.find({})]
+    return out
+
+
+async def import_all(data: dict) -> dict:
+    from pymongo import ReplaceOne
+
+    counts = {}
+    for name, coll in _colls().items():
+        docs = data.get(name) or []
+        for i in range(0, len(docs), 500):
+            await coll.bulk_write([ReplaceOne({"_id": x["_id"]}, x, upsert=True) for x in docs[i : i + 500]])
+        counts[name] = len(docs)
+    _cache["dirty"] = True
+    await refresh_channels()
+    await refresh_groups()
+    await refresh_bans()
+    return counts

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import time
 from collections import defaultdict
 
 from aiohttp import ClientSession, ClientTimeout, web
@@ -9,6 +10,7 @@ from pyrogram.enums import ParseMode
 from pyrogram.errors import FloodWait
 from pyrogram.types import BotCommand
 
+import backup
 import database as db
 import webapp
 from config import Config
@@ -58,6 +60,22 @@ async def _deleter(client):
                 await _delete_ids(client, chat_id, ids)
         except Exception:
             logging.exception("auto-delete loop error")
+
+
+async def _backup_loop(client):
+    """Sends a database backup to the admin every BACKUP_EVERY_HOURS (checked every 30 min)."""
+    await asyncio.sleep(60)
+    while True:
+        try:
+            chat = backup.target_chat()
+            if Config.BACKUP_EVERY_HOURS > 0 and chat:
+                last = await db.get_meta("last_backup", 0)
+                if time.time() - last >= Config.BACKUP_EVERY_HOURS * 3600:
+                    await backup.send_backup(client, chat)
+                    await db.set_meta("last_backup", time.time())
+        except Exception:
+            logging.exception("backup failed")
+        await asyncio.sleep(1800)
 
 
 class Bot(Client):
@@ -118,6 +136,7 @@ class Bot(Client):
             logging.warning("BASE_URL / RENDER_EXTERNAL_URL not set - Mini App buttons are disabled")
 
         self._tasks.append(asyncio.create_task(_deleter(self)))
+        self._tasks.append(asyncio.create_task(_backup_loop(self)))
         url = os.getenv("RENDER_EXTERNAL_URL")  # set automatically by Render
         if url:
             self._tasks.append(asyncio.create_task(_keep_alive(url)))

@@ -50,3 +50,13 @@ admin in that story's channel (to check membership and make join links).
 - Open it: /app command, the button under /start, or the bot's menu button (set automatically).
 - Search / genre chips / "Get link" -> deep link to the bot chat (same flow as the group results).
 - In groups the button is a link; for a clean in-group button create the app in @BotFather (/newapp) and set MINIAPP_LINK.
+
+## More features
+- **/missing** (admin): searches that found nothing, most wanted first. **/stats**: users, searches, top searches/stories.
+- **Requests**: when a new story matches a pending /request, the user is tagged automatically.
+- **Report broken link**: button under every delivered link; the admin can delete the story from the report.
+- **Anti-abuse**: `SEARCH_COOLDOWN`, `/allowgroup` + `/denygroup` (inside a group) + `/groups`, `/ban` + `/unban`.
+- **Force subscribe**: set `FORCE_SUB_CHANNEL` (+ `FORCE_SUB_LINK`), bot must be admin of that channel.
+- **/broadcast**, **/backup** (also automatic every `BACKUP_EVERY_HOURS`), **/restore** (reply to a backup file).
+- **Mini App**: Trending tab, Favorites tab (star on every story).
+- **Hindi search**: Devanagari names match Roman titles and the other way round.

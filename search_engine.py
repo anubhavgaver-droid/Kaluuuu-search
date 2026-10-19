@@ -16,6 +16,7 @@ from rapidfuzz import fuzz, process
 
 import database as db
 from config import Config
+from translit import to_roman
 
 _PUNCT = str.maketrans({c: " " for c in string.punctuation})
 _STOP = {"the", "a", "an", "of", "and", "in", "to", "for", "my", "ki", "ka", "ke", "aur", "hai", "se", "ko", "me", "mein", "ek", "is"}
@@ -24,9 +25,12 @@ _CONS = [("sh", "s"), ("ch", "c"), ("ph", "f"), ("kh", "k"), ("gh", "g"), ("th",
 
 
 def _norm(s: str) -> str:
-    s = unicodedata.normalize("NFKD", s or "")
+    s = unicodedata.normalize("NFKD", to_roman(s or ""))  # Hindi text -> Roman first
     s = "".join(ch for ch in s if not (0x300 <= ord(ch) <= 0x36F))  # strip Latin accents only
     return " ".join(s.translate(_PUNCT).lower().split())
+
+
+norm = _norm  # public alias
 
 
 def _phon(s: str) -> str:
@@ -134,3 +138,18 @@ async def search(query: str, min_score=None, relaxed=False):
         close = [(p, s) for p, s in res if s >= best - 2][: Config.MAX_RESULTS]
         return "exact", [dict(p, score=round(s)) for p, s in close]
     return "suggest", [dict(p, score=round(s)) for p, s in res]
+
+
+def pair_score(query: str, title: str, tags=(), strict: bool = False) -> float:
+    """Score one query against one title (0-100). strict=True also needs the strings to look alike overall."""
+    qn = _norm(query)
+    if not qn:
+        return 0.0
+    qp = _phon(query)
+    qwords = [w for w in qn.split() if w not in _STOP] or qn.split()
+    tn, tp = _norm(title), _phon(title)
+    tg = _norm(" ".join(tags))
+    s = _score(qn, qp, qwords, tn, tp, tg, _phon(tg))
+    if strict:
+        s = min(s, max(fuzz.ratio(qn, tn), fuzz.ratio(qp, tp)) + 20)
+    return s

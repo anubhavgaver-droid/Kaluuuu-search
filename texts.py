@@ -237,3 +237,85 @@ def miniapp_card() -> str:
         f"{BULLET} Tap <b>Get link</b> - it opens here in the bot",
         LINE,
     )
+
+
+# ---------- anti-abuse / force subscribe ----------
+def slow_down() -> str:
+    return _box("⏳ <b>SLOW DOWN</b>", "Please wait a few seconds between searches.")
+
+
+def force_sub() -> str:
+    return _box(
+        "🔔 <b>JOIN OUR CHANNEL</b>",
+        "To get story links you need to join our channel first.",
+        LINE,
+        "1️⃣ Tap <b>Join channel</b>",
+        "2️⃣ Then tap <b>✅ I've joined</b>",
+    )
+
+
+# ---------- reports ----------
+def report_admin(title: str, link: str, user_html: str) -> str:
+    return _box(
+        "⚠️ <b>BROKEN LINK REPORT</b>",
+        f"{BULLET} <b>Story:</b> {html.escape(title[:100])}",
+        f"👤 <b>Reported by:</b> {user_html}",
+        f"🔗 {html.escape(link)}",
+    )
+
+
+# ---------- admin: stats / missing / groups / auto-fulfilled ----------
+def stats_box(d: dict) -> str:
+    def rate(t, f):
+        return f"{f}/{t} ({round(100 * f / t)}%)" if t else "0"
+
+    top = [f"{BULLET} <code>{html.escape(q)}</code> - {n}" for q, n in d["top_today"]] or ["-"]
+    best = [f"{BULLET} {html.escape(t[:40])} - {n}" for t, n in d["top_stories"]] or ["-"]
+    return _box(
+        "📊 <b>BOT STATS</b>",
+        f"📚 <b>Stories:</b> {d['posts']}   📡 <b>Channels:</b> {d['channels']}",
+        f"👥 <b>Users:</b> {d['users']}  (+{d['new24']} today, +{d['new7']} this week)",
+        f"🔍 <b>Searches today:</b> {d['s1'][0]}  •  found {rate(*d['s1'])}",
+        f"🔍 <b>Searches 7 days:</b> {d['s7'][0]}  •  found {rate(*d['s7'])}",
+        LINE,
+        "🔥 <b>Top searches today</b>",
+        *top,
+        LINE,
+        "⭐ <b>Most opened stories (7 days)</b>",
+        *best,
+        LINE,
+        f"📨 <b>Pending requests:</b> {d['pending']}   🕳 <b>Missing:</b> {d['misses']}",
+        f"🚫 <b>Banned:</b> {d['bans']}   🏘 <b>Allowed groups:</b> {d['groups'] or 'all'}",
+    )
+
+
+def missing_list(rows: list, total: int) -> str:
+    lines = [f"{BULLET} <code>{html.escape(r.get('q', r['_id'])[:50])}</code> - searched {r['count']}x" for r in rows]
+    return _box(
+        "🕳 <b>NOT FOUND SEARCHES</b>",
+        f"📦 <b>Total unique:</b> {total}",
+        LINE,
+        *(lines or ["Nothing missing 🎉"]),
+        LINE,
+        "💡 <i>Add these stories first. /missing clear resets the list.</i>",
+    )
+
+
+def groups_list(rows: list) -> str:
+    lines = [f"{BULLET} {html.escape(g.get('title', '?')[:40])} <code>{g['_id']}</code>" for g in rows]
+    return _box(
+        "🏘 <b>ALLOWED GROUPS</b>",
+        *(lines or ["None set - the bot works in every group."]),
+        LINE,
+        "Use /allowgroup or /denygroup inside a group.",
+    )
+
+
+def auto_fulfilled(title: str, rows: list) -> str:
+    lines = [f"{BULLET} <code>{html.escape(q[:40])}</code> - {html.escape(name[:20])}: {info}" for q, name, info in rows]
+    return _box("🤖 <b>REQUESTS AUTO-FULFILLED</b>", f"{BULLET} <b>New story:</b> {html.escape(title[:80])}", LINE, *lines)
+
+
+def backup_caption(counts: dict) -> str:
+    lines = [f"{BULLET} {k}: {v}" for k, v in counts.items()]
+    return _box("💾 <b>DATABASE BACKUP</b>", *lines, LINE, "Reply to this file with /restore to load it back.")
